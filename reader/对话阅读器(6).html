@@ -1,0 +1,1258 @@
+<!doctype html>
+<html lang="zh-CN" data-page-node-id="V4THKwXBhsqqm0pbRt4MbR">
+<head data-page-node-id="Q0V4kkMIxa0U0X7c7Ar2O7">
+<meta charset="utf-8" data-page-node-id="ggRuzTTMGN61oTJJZyeDYs" />
+<meta name="viewport" content="width=device-width, initial-scale=1" data-page-node-id="EW9SC3KZHMgk0YUPbERHSB" />
+<title>对话阅读器</title>
+<style>
+  :root {
+    --bg: #f7f5f0;
+    --panel: #ffffff;
+    --ink: #23262d;
+    --ink-soft: #6b7280;
+    --line: #e2ddd2;
+    --accent: #b07515;
+    --accent-soft: #fdf5e6;
+    --warn: #a8410f;
+    --warn-soft: #fdefe7;
+    --user-soft: #eef2f8;
+  }
+  html[data-theme="dark"] {
+    --bg: #1a1c21;
+    --panel: #22252b;
+    --ink: #e6e3dc;
+    --ink-soft: #9aa0aa;
+    --line: #34383f;
+    --accent: #e0a94a;
+    --accent-soft: #2c2718;
+    --warn: #eba078;
+    --warn-soft: #33241c;
+    --user-soft: #272b33;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 15px/1.6 "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
+  }
+  header {
+    position: sticky; top: 0; z-index: 5;
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    padding: 12px 20px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--line);
+  }
+  header h1 { margin: 0; font-size: 15px; font-weight: 600; cursor: pointer; }
+  header h1:hover { color: var(--accent, #b07515); }
+  header .meta { color: var(--ink-soft); font-size: 13px; }
+  header .grow { flex: 1; }
+  button, select, input[type="search"] {
+    font: inherit; font-size: 13px;
+    padding: 6px 11px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--panel);
+    color: var(--ink);
+    cursor: pointer;
+  }
+  button:hover { border-color: var(--accent); }
+  input[type="search"] { cursor: text; width: 190px; }
+  .seg { display: flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  .seg button { border: 0; border-radius: 0; }
+  .seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+
+  main { display: grid; grid-template-columns: 288px 1fr; min-height: calc(100vh - 54px); }
+  nav {
+    border-right: 1px solid var(--line);
+    background: var(--panel);
+    overflow-y: auto;
+    max-height: calc(100vh - 54px);
+    position: sticky; top: 54px;
+    padding: 10px;
+  }
+  nav .navitem {
+    display: block; width: 100%; text-align: left;
+    border: 0; background: transparent;
+    padding: 9px 11px; border-radius: 6px;
+    color: var(--ink); line-height: 1.45;
+  }
+  nav .navitem:hover { background: var(--bg); }
+  nav .navitem.active {
+    background: var(--accent-soft); color: var(--accent);
+    font-weight: 600;
+    box-shadow: inset 3px 0 0 var(--accent);
+    scroll-margin: 24px;
+  }
+  nav .navitem.active small { color: var(--accent); opacity: .8; }
+  nav .navitem small { display: block; color: var(--ink-soft); font-size: 12px; margin-top: 2px; }
+  nav .navitem .dot { color: var(--warn); font-weight: 700; }
+
+  section.reader { padding: 26px 34px 90px; max-width: 900px; }
+  article {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 20px 24px;
+    margin-bottom: 18px;
+  }
+  article.user { background: var(--user-soft); }
+  article.flagged { border-color: var(--warn); }
+  .head {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    margin-bottom: 12px; padding-bottom: 10px;
+    border-bottom: 1px solid var(--line);
+  }
+  .head b { font-size: 15px; font-weight: 600; }
+  .tag {
+    font-size: 12px; padding: 2px 8px; border-radius: 999px;
+    border: 1px solid var(--line); color: var(--ink-soft);
+  }
+  .tag.warn { color: var(--warn); border-color: var(--warn); background: var(--warn-soft); }
+  .head .grow { flex: 1; }
+  .head button { padding: 4px 9px; font-size: 12px; }
+  .body { white-space: pre-wrap; word-break: break-word; }
+  .body.serif { font-family: "Songti SC", "SimSun", Georgia, serif; font-size: 16.5px; line-height: 1.9; }
+  .note {
+    margin-top: 12px; width: 100%; min-height: 46px;
+    font: inherit; font-size: 13px;
+    padding: 9px 11px; border-radius: 6px;
+    border: 1px dashed var(--line); background: transparent; color: var(--ink);
+    resize: vertical;
+  }
+  mark { background: #ffe9a8; color: #4a3405; }
+  html[data-theme="dark"] mark { background: #6a5320; color: #ffeec2; }
+  mark.cur {
+    background: #f08c2e; color: #2b1800;
+    box-shadow: 0 0 0 2px #f08c2e; border-radius: 2px;
+  }
+  html[data-theme="dark"] mark.cur { background: #e59a3c; color: #241400; box-shadow: 0 0 0 2px #e59a3c; }
+  .hitbox { display: inline-flex; align-items: center; gap: 3px; }
+  .hitbox button { padding: 5px 9px; line-height: 1; font-size: 14px; }
+  #hitLabel {
+    font-size: 12.5px; color: var(--ink-soft);
+    min-width: 54px; text-align: center;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .tag.ok { color: var(--accent, #b07515); border-color: var(--accent, #b07515); }
+  .doctitle {
+    max-width: 300px; padding: 3px 8px; border-radius: 5px; outline: none;
+    font-size: 14px; font-weight: 500;
+    border-bottom: 1px dashed var(--line);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .doctitle:focus { background: var(--bg); border-bottom-color: var(--accent, #b07515); max-width: 520px; }
+  .saved-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px;
+    background: var(--panel); margin-bottom: 8px;
+  }
+  .saved-row .t { flex: 1; min-width: 0; }
+  .saved-row .t b { display: block; font-size: 14px; font-weight: 500; cursor: pointer; }
+  .saved-row .t b:hover { color: var(--accent, #b07515); }
+  .saved-row .t small { color: var(--ink-soft); font-size: 12.5px; }
+
+  .star {
+    border: 0; background: transparent; cursor: pointer;
+    font-size: 17px; line-height: 1; padding: 1px 5px;
+    color: var(--ink-tertiary, #9aa0aa);
+  }
+  .star:hover { color: #e0a94a; }
+  .star.on { color: #e0a94a; }
+  article.starred { border-color: #e0a94a; }
+  /* 高光点评：紧跟在标题下面，写完再往下读正文 */
+  .reviewbox {
+    display: flex; align-items: flex-start; gap: 8px;
+    margin: 2px 0 16px;
+    padding: 8px 10px 8px 9px;
+    border-radius: 6px;
+    background: rgba(224, 169, 74, .07);
+    border-left: 3px solid #e0a94a;
+  }
+  .reviewbox .rl {
+    flex: none; margin-top: 5px;
+    font-size: 12px; font-weight: 600; color: #b8862c;
+    white-space: nowrap; letter-spacing: .02em;
+  }
+  html[data-theme="dark"] .reviewbox .rl { color: #e0a94a; }
+  .reviewbox .review {
+    flex: 1; min-height: 30px;
+    font: inherit; font-size: 13.5px; line-height: 1.6;
+    padding: 4px 6px; border-radius: 4px;
+    border: 1px solid transparent; background: transparent; color: var(--ink);
+    resize: vertical;
+  }
+  .reviewbox .review:hover { border-color: rgba(224, 169, 74, .45); }
+  .reviewbox .review:focus {
+    outline: none;
+    border-color: #e0a94a;
+    background: var(--panel);
+  }
+  nav .navitem .st { color: #e0a94a; }
+  #btnStarOnly[aria-pressed="true"] {
+    background: var(--accent-soft); color: var(--accent, #b07515);
+    border-color: var(--accent, #b07515); font-weight: 500;
+  }
+
+  .del {
+    border: 0; background: transparent; cursor: pointer;
+    padding: 3px 7px; border-radius: 5px;
+    color: var(--ink-tertiary, #9aa0aa); font-size: 15px; line-height: 1;
+    opacity: .35;
+  }
+  article:hover .del { opacity: 1; }
+  .del:hover { color: var(--warn, #a8410f); background: var(--warn-soft, #fdefe7); }
+  .del.armed {
+    opacity: 1; font-size: 12px; font-weight: 500;
+    color: #fff; background: var(--warn, #a8410f); padding: 5px 10px;
+  }
+  article.gone { opacity: .55; border-style: dashed; }
+  #btnTrash[aria-pressed="true"] {
+    background: var(--warn-soft, #fdefe7); color: var(--warn, #a8410f);
+    border-color: var(--warn, #a8410f); font-weight: 500;
+  }
+  .ttl {
+    min-width: 40px; padding: 2px 6px; margin: -2px -6px;
+    border-radius: 5px; outline: none;
+    border-bottom: 1px dashed transparent;
+  }
+  .ttl:hover { border-bottom-color: var(--line); }
+  .ttl:focus { background: var(--bg); border-bottom-color: var(--accent, #b07515); }
+  .body.editable { outline: none; border-radius: 6px; padding: 2px 6px; margin: 0 -6px; }
+  .body.editable:focus { background: var(--bg); box-shadow: inset 0 0 0 1px var(--line); }
+
+  .drop {
+    margin: 60px auto; max-width: 620px; padding: 54px 40px;
+    text-align: center; border: 2px dashed var(--line); border-radius: 14px;
+    background: var(--panel);
+  }
+  .drop h2 { margin: 0 0 10px; font-size: 19px; font-weight: 600; }
+  .drop p { margin: 0 0 8px; color: var(--ink-soft); font-size: 14px; }
+  .drop.over { border-color: var(--accent); background: var(--accent-soft); }
+  .hidden { display: none !important; }
+
+  /* ---------- 手机 ---------- */
+  @media (max-width: 760px) {
+    header { padding: 8px 12px; gap: 8px; }
+    header h1 { font-size: 14px; }
+    .doctitle { max-width: 42vw; font-size: 13.5px; }
+    .meta { font-size: 11.5px; width: 100%; order: 9; }
+    input[type="search"] { width: 108px; }
+    header button, .seg button { padding: 5px 8px; font-size: 12px; }
+
+    /* 目录改成顶部一条横带，不再占掉半个屏 */
+    main { grid-template-columns: 1fr; min-height: 0; }
+    nav {
+      position: static; max-height: 30vh;
+      border-right: 0; border-bottom: 1px solid var(--line);
+      padding: 8px;
+    }
+    nav .navitem { padding: 7px 9px; font-size: 13.5px; }
+    nav .navitem small { font-size: 11.5px; }
+
+    section.reader { padding: 14px 12px 70px; max-width: none; }
+    article { padding: 14px 14px 16px; border-radius: 8px; margin-bottom: 14px; }
+    .head { gap: 7px; margin-bottom: 10px; padding-bottom: 8px; }
+    .head button { padding: 4px 7px; font-size: 11.5px; }
+    .body { font-size: 15.5px; }
+    .body.serif { font-size: 16px; line-height: 1.85; }
+    .del { opacity: .5; }
+    .drop { padding: 40px 18px; }
+    .reviewbox { margin: 2px 0 12px; }
+  }
+</style>
+</head>
+<body data-page-node-id="fiL7o3lDui1bQdp7mn3DT9">
+
+<header data-page-node-id="uqIBuazWlVm6dYwOHbdwqd">
+  <h1 id="btnHome" title="回主页" data-page-node-id="p5oBXUfd8Vk6IiNzZjFYzV">对话阅读器</h1>
+  <b class="doctitle" id="docTitle" contenteditable="true" spellcheck="false" title="点这里改文档标题" data-page-node-id="FLLz4I0B1NOvymtrNGThPY">未载入</b>
+  <span class="meta" id="meta" data-page-node-id="VYrG2RsOlAgaIRwHAD3CC4"></span>
+  <span class="grow" data-page-node-id="162DAQdCzdwB6MMCzL7IVz"></span>
+  <div class="seg" id="viewSeg" data-page-node-id="dSwKiafCkjbA9VTqXwY5G2">
+    <button data-view="turns" aria-pressed="true" data-page-node-id="WqFTwBs6ZtNXjkqTOKsDn9">我和 AI</button>
+    <button data-view="ai" aria-pressed="false" data-page-node-id="ICnaBSiKR6VQUSGNb8R5Jz">只看 AI</button>
+    <button data-view="me" aria-pressed="false" data-page-node-id="Ibc3RsRahwoF1gMJ0GMfiQ">只看我</button>
+    <button data-view="chapters" aria-pressed="false" data-page-node-id="QXyzp7a9YUncDxTzBqRIMd">按章节</button>
+  </div>
+  <button id="btnStarOnly" aria-pressed="false" title="只列出打过星的高光段落" data-page-node-id="cYd791YCaJFWmx1AJ0bkmZ">只看高光</button>
+  <button id="btnTrash" aria-pressed="false" class="hidden" title="查看已删掉的段落，可以恢复" data-page-node-id="hgCUrYRLqccDvrFaO1udJc">回收站</button>
+  <input type="search" id="q" placeholder="搜索正文…（回车下一个）" data-page-node-id="DeMZaGyHJW4ndA9wEgaoTa" />
+  <span class="hitbox hidden" id="hitBox" data-page-node-id="Rb5K59lDERCM6GEKlZGzGE">
+    <button id="hitPrev" title="上一个（Shift + 回车）" data-page-node-id="peAFW4IdVSMe5m8wrgj7ff">‹</button>
+    <span id="hitLabel" data-page-node-id="pWTl8qb4WdUmOLtkaADNJ5">0 / 0</span>
+    <button id="hitNext" title="下一个（回车）" data-page-node-id="DG237W1J0Rqb7tmLyWhO9r">›</button>
+  </span>
+  <button id="btnDraft" title="按本地规则从正文开头提取标题，不经过任何 AI" data-page-node-id="RBHKOXymisZTllHAwbHFlQ">生成标题草稿</button>
+  <button id="btnSave" title="保存到这台电脑的浏览器本地库" data-page-node-id="dWvHClrnsg9hmwYstQjwhm">保存</button>
+  <button id="btnSerif" data-page-node-id="XvDFeNCItiT8CAf2HrrQo6">正文字体</button>
+  <button id="btnTheme" data-page-node-id="NLkAUKNhbjG5MgK1KmAQpl">深浅</button>
+  <button id="btnExport" data-page-node-id="jH9GCeQuCXOagLVuiiDhAm">导出 Markdown</button>
+  <button id="btnOpen" title="回主页，那里有已保存的文章和导入入口" data-page-node-id="1CAiPX22xayupN5c7NgX94">主页</button>
+  <input type="file" id="file" accept=".json,application/json" class="hidden" data-page-node-id="QYitcIA99xz5PDcDI0Uxzy" />
+  <input type="file" id="fileBackup" accept=".json,application/json" class="hidden" data-page-node-id="gfnmTOkUzX6sm7Cf9tvb0B" />
+</header>
+
+<div class="drop" id="drop" data-page-node-id="P9gVt2rmT9WWJugZGIff4v">
+  <h2 data-page-node-id="WYdyfmgLaQW6vaiEMDwiSx">把对话内容放进来</h2>
+  <p data-page-node-id="e4bFH1RGMU2sSwQC2XiYI0">两种都行：拖入导出的 <code data-page-node-id="yC4EE9FHTRGZiyR35Hwfg3">.json</code>，或者直接粘贴纯文本</p>
+  <p data-page-node-id="O3K5heVJFGBw2OGTYPMidn">内容只在这个浏览器里处理，不上传任何地方（保存也只存在本机）</p>
+  <p style="font-size:13px;color:var(--ink-soft)" data-page-node-id="cGey58lbdzUOSbcBbmVXEc">换电脑或换浏览器时，用下方的「导出全部备份 / 导入备份」搬家</p>
+  <p style="margin-top:18px" data-page-node-id="rXuGutALCxFmCCklqUfRcz">
+    <button id="btnPick" data-page-node-id="xrUhhIFhdfBT2rfsj8HiMa">选择 JSON 文件</button>
+    <button id="btnPasteMode" style="margin-left:8px" data-page-node-id="FWbc9JDCyBCOPhAQsRsdav">粘贴纯文本</button>
+  </p>
+
+  <div id="pastePane" class="hidden" style="margin-top:22px;text-align:left" data-page-node-id="0h1JUxuSlkmcPv3baQlSj9">
+    <p style="margin:0 0 8px;font-size:13.5px" data-page-node-id="w2D7MpqZkTMKYykAd88vTV">
+      在 Gemini <strong data-page-node-id="3U22xQEkFEhDpSQnBLFgE2">分享页</strong>按 <code data-page-node-id="MqoqxlnFl6KDX8S7KVqV9V">Ctrl/⌘ A</code> 全选、<code data-page-node-id="eBO1Q18jf9D17g9fAnXgmX">Ctrl/⌘ C</code> 复制，粘到下面：
+    </p>
+    <textarea id="pasteBox" placeholder="在这里粘贴（Ctrl/⌘ V）"
+      style="width:100%;height:200px;padding:12px;border:1px solid var(--line);border-radius:8px;
+             background:var(--panel);color:var(--ink);font:13px/1.6 var(--font-mono,monospace);resize:vertical"></textarea>
+    <p style="margin:10px 0 0;font-size:13px;color:var(--ink-secondary,#6b7280)" data-page-node-id="lZwEzvp5zmFLbXucuFeqKA">
+      分隔标记（一行一个，前缀 <code data-page-node-id="8SdWTk7GHrr67t58PghpWY">u:</code> 是我说的，<code data-page-node-id="sEdLYDVzrZiZKNzedKQA74">a:</code> 是 AI 说的）：
+    </p>
+    <textarea id="markBox"
+      style="width:100%;height:88px;padding:10px;border:1px solid var(--line);border-radius:8px;
+             background:var(--panel);color:var(--ink);font:13px/1.5 var(--font-mono,monospace);resize:vertical">u:你说
+a:Gemini 说
+u:You said
+a:Gemini said
+a:ChatGPT said
+a:Claude said</textarea>
+    <p style="margin-top:12px" data-page-node-id="KeEOZHNtvLv6AvQ9yJCH5r">
+      <button id="btnParse" data-page-node-id="FhTbKM56WffLIXEjM9rb3o">切分并打开</button>
+      <span id="parseHint" style="margin-left:10px;font-size:13px;color:var(--ink-soft)" data-page-node-id="r8o3OcAEbLbNbycIkApC2D"></span>
+    </p>
+  </div>
+
+  <div id="savedWrap" class="hidden" style="margin-top:30px;padding-top:24px;border-top:1px solid var(--line);text-align:left" data-page-node-id="3OZxvNZRqhDJeEH31U8Qrh">
+    <h3 style="margin:0 0 4px;font-size:15px;font-weight:600" data-page-node-id="MeGJhhWPRQ73Fo3YN7Uze6">已保存的文章</h3>
+    <p style="margin:0 0 14px;font-size:13px;color:var(--ink-soft)" data-page-node-id="TAF09nIFwAMYiovSt7uI0O">存在这台电脑的浏览器本地库里，点标题继续读</p>
+    <div id="savedList" data-page-node-id="rVciwUThPr0jQAzXWw4IJL"></div>
+    <p style="margin:16px 0 0" data-page-node-id="mMsAyg0iDhpgUQOVBUmvaG">
+      <button id="btnBackupOut" data-page-node-id="Z6MOZpEn3vqfUYSDJVxAW1">导出全部备份</button>
+      <button id="btnBackupIn" style="margin-left:6px" data-page-node-id="4ZKHmwRZwBE1MWumLHUvDz">导入备份</button>
+      <span style="margin-left:10px;font-size:12.5px;color:var(--ink-soft)" data-page-node-id="lHS3e8uUaakgxyCBVBpTH2">换电脑或换浏览器时用这两个搬家</span>
+    </p>
+  </div>
+</div>
+
+<main id="app" class="hidden" data-page-node-id="kSHZlKu7iEMJvCoOoU66PW">
+  <nav id="nav" data-page-node-id="tZ2Ga3nlwb13v3FLnaws3s"></nav>
+  <section class="reader" id="reader" data-page-node-id="jZ3nk74BSMd3Z6i1tE2n83"></section>
+</main>
+
+<script>
+const S = { data: null, chapters: [], view: 'turns', marks: {}, key: '', serif: true, q: '', docId: '', starOnly: false, showDeleted: false, hitIdx: 0 };
+
+/* ---------- 本地文章库：优先 IndexedDB（容量大），失败退回 localStorage ---------- */
+const STORE = (() => {
+  const NAME = 'wwy_reader', VER = 1, SS = 'docs', LK = 'wwy_reader_docs';
+  let dbp = null;
+  function open() {
+    if (dbp) return dbp;
+    dbp = new Promise((res, rej) => {
+      let req;
+      try { req = indexedDB.open(NAME, VER); } catch (e) { return rej(e); }
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains(SS)) db.createObjectStore(SS, { keyPath: 'id' });
+      };
+      req.onsuccess = () => res(req.result);
+      req.onerror = () => rej(req.error);
+      req.onblocked = () => rej(new Error('indexedDB blocked'));
+    });
+    return dbp;
+  }
+  function tx(mode, fn) {
+    return open().then((db) => new Promise((res, rej) => {
+      const t = db.transaction(SS, mode);
+      const r = fn(t.objectStore(SS));
+      t.oncomplete = () => res(r ? r.result : undefined);
+      t.onerror = () => rej(t.error);
+      t.onabort = () => rej(t.error || new Error('aborted'));
+    }));
+  }
+  const lsAll = () => { try { return JSON.parse(localStorage.getItem(LK) || '[]'); } catch (e) { return []; } };
+  const lsPut = (arr) => localStorage.setItem(LK, JSON.stringify(arr));
+
+  return {
+    engine: 'indexeddb',
+    async list() {
+      try { return (await tx('readonly', (s) => s.getAll())) || []; }
+      catch (e) { this.engine = 'localstorage'; return lsAll(); }
+    },
+    async put(rec) {
+      try { await tx('readwrite', (s) => s.put(rec)); }
+      catch (e) {
+        this.engine = 'localstorage';
+        const arr = lsAll().filter((d) => d.id !== rec.id);
+        arr.push(rec);
+        try { lsPut(arr); }
+        catch (e2) { throw new Error('本地空间不够了，先「导出全部备份」再删掉几篇'); }
+      }
+    },
+    async del(id) {
+      try { await tx('readwrite', (s) => s.delete(id)); }
+      catch (e) { lsPut(lsAll().filter((d) => d.id !== id)); }
+    },
+  };
+})();
+
+const fmtSize = (n) => (n >= 10000 ? (n / 10000).toFixed(1) + ' 万字' : n + ' 字');
+const fmtTime = (iso) => { try { return new Date(iso).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }); } catch (e) { return ''; } };
+
+async function refreshSaved() {
+  const wrap = document.getElementById('savedWrap');
+  const box = document.getElementById('savedList');
+  const docs = (await STORE.list()).sort((a, b) => (b.savedAt || '').localeCompare(a.savedAt || ''));
+  if (!docs.length) { wrap.classList.add('hidden'); return; }
+  wrap.classList.remove('hidden');
+  box.innerHTML = docs.map((d) => `
+    <div class="saved-row">
+      <div class="t">
+        <b data-open="${d.id}">${esc(d.title || '未命名')}</b>
+        <small>${d.turnCount || 0} 轮｜${fmtSize(d.chars || 0)}｜${fmtTime(d.savedAt)}</small>
+      </div>
+      <button data-del="${d.id}">删除</button>
+    </div>`).join('');
+}
+
+async function saveDoc(silent) {
+  if (!S.data) return;
+  const chars = S.data.turns.reduce((n, t) => {
+    const ed = S.marks['t' + t.index];
+    return n + ((ed && ed.text !== undefined ? ed.text : t.text) || '').length;
+  }, 0);
+  const rec = {
+    id: S.docId || 'doc_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    title: S.data.title || '未命名',
+    source: S.data.source || '',
+    savedAt: new Date().toISOString(),
+    turnCount: S.data.turns.length,
+    chars,
+    view: S.view,
+    markKey: S.key,
+    turns: S.data.turns,
+    marks: S.marks,
+  };
+  try {
+    await STORE.put(rec);
+    S.docId = rec.id;
+    await refreshSaved();
+    if (!silent) {
+      const b = document.getElementById('btnSave');
+      b.textContent = '已保存 ✓';
+      setTimeout(() => (b.textContent = '保存'), 1600);
+    }
+  } catch (e) {
+    alert(e.message || '保存失败');
+  }
+}
+
+async function openDoc(id) {
+  const rec = (await STORE.list()).find((d) => d.id === id);
+  if (!rec) return;
+  S.docId = rec.id;
+  loadTurns(rec.turns, rec.title, rec.source, rec.marks, rec.markKey);
+  if (rec.view) {
+    S.view = rec.view;
+    document.querySelectorAll('#viewSeg button').forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.view === rec.view)));
+    render();
+  }
+}
+
+
+/* ---------- 章节识别 ---------- */
+const HEAD_RE = [
+  /^第\s*[一二三四五六七八九十百千零〇\d]+\s*[章回节篇话]/,
+  /^Chapter\s+\d+/i,
+  /^#{1,4}\s+\S/,
+  /^番外[\s：:·]/,
+  /^序[章言]?\s*$/,
+  /^终章/,
+  /^【[^】]{1,30}】\s*$/
+];
+const isHead = (line) => {
+  const s = line.trim();
+  if (!s || s.length > 60) return false;
+  return HEAD_RE.some((re) => re.test(s));
+};
+
+/* ---------- 截断嫌疑 ---------- */
+const ENDS_OK = /[。！？…”』」）】.!?"'\)\]:：]$/;
+const looksCut = (text) => {
+  const t = (text || '').trim();
+  if (t.length < 30) return false;
+  return !ENDS_OK.test(t.slice(-1));
+};
+
+/* ---------- 建章节 ---------- */
+function buildChapters(turns) {
+  const out = [];
+  let cur = null;
+  let pending = [];
+  const openChapter = (title, turnIndex) => {
+    cur = { title, body: [], prompts: [], fromTurn: turnIndex, toTurn: turnIndex };
+    out.push(cur);
+    return cur;
+  };
+  turns.forEach((t) => {
+    // 指令先存着，挂到它产生的那一章上
+    if (t.role === 'user') { pending.push(t); return; }
+    let buf = [];
+    const attach = () => { if (cur && pending.length) { cur.prompts.push(...pending); pending = []; } };
+    const flush = () => {
+      if (!buf.length) return;
+      if (!cur) openChapter('（未出现章节标记）', t.index);
+      attach();
+      cur.body.push(...buf);
+      cur.toTurn = t.index;
+      buf = [];
+    };
+    (t.text || '').split('\n').forEach((line) => {
+      if (isHead(line)) { flush(); openChapter(line.trim().replace(/^#{1,4}\s+/, ''), t.index); attach(); }
+      else buf.push(line);
+    });
+    flush();
+  });
+  if (pending.length && out.length) out[out.length - 1].prompts.push(...pending);
+  return out
+    .map((c) => ({ ...c, text: c.body.join('\n').trim() }))
+    .filter((c) => c.text.length > 0 || c.prompts.length > 0)
+    .map((c, i) => ({ ...c, id: i + 1 }));
+}
+
+/* ---------- 标记持久化 ---------- */
+const loadMarks = () => { try { return JSON.parse(localStorage.getItem(S.key) || '{}'); } catch { return {}; } };
+const saveMarks = () => localStorage.setItem(S.key, JSON.stringify(S.marks));
+
+/* ---------- 渲染 ---------- */
+const esc = (s) => s.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+let hitCount = 0;                       // 本次 render 累计的命中数，供逐个跳转用
+function hl(text) {
+  const html = esc(text);
+  if (!S.q) return html;
+  try {
+    // 关键词也要先转义：否则搜 < & 这类字符对不上已转义的正文
+    const q = esc(S.q).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return html.replace(new RegExp(q, 'gi'), (m) => `<mark data-hit="${++hitCount}">${m}</mark>`);
+  } catch { return html; }
+}
+
+function updateHitLabel() {
+  const box = document.getElementById('hitBox');
+  const lab = document.getElementById('hitLabel');
+  box.classList.toggle('hidden', !S.q);
+  lab.textContent = hitCount ? `${S.hitIdx} / ${hitCount}` : '无结果';
+}
+
+function gotoHit(n, scroll) {
+  if (!hitCount) { S.hitIdx = 0; updateHitLabel(); return; }
+  S.hitIdx = ((n - 1 + hitCount) % hitCount) + 1;      // 到头自动绕回
+  document.querySelectorAll('mark.cur').forEach((m) => m.classList.remove('cur'));
+  const el = document.querySelector(`mark[data-hit="${S.hitIdx}"]`);
+  if (el) {
+    el.classList.add('cur');
+    if (scroll) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }
+  updateHitLabel();
+}
+
+function items() {
+  if (S.view === 'chapters') {
+    return S.chapters.map((c) => {
+      const key = 'c' + c.id;
+      const ed = S.marks[key] || {};
+      const text = ed.text ?? c.text;
+      return {
+        key,
+        title: ed.title || `${c.id}. ${c.title}`,
+        defaultTitle: `${c.id}. ${c.title}`,
+        sub: `轮次 ${c.fromTurn}${c.toTurn !== c.fromTurn ? '–' + c.toTurn : ''}｜${text.length} 字`,
+        role: 'assistant',
+        text,
+        prompts: c.prompts,
+        cut: looksCut(text),
+        edited: !!(ed.title || ed.text !== undefined),
+      };
+    });
+  }
+
+  const onlyAI = S.view === 'ai';
+  const onlyMe = S.view === 'me';
+  const solo = onlyAI || onlyMe;            // 单角色视图：重新连续编号
+  let seq = 0;
+  return S.data.turns
+    .filter((t) => (!onlyAI || t.role === 'assistant') && (!onlyMe || t.role === 'user'))
+    .map((t) => {
+      const key = 't' + t.index;
+      const ed = S.marks[key] || {};
+      const text = ed.text ?? t.text;
+      seq++;
+      const dft = solo
+        ? `${String(seq).padStart(2, '0')}. ${onlyMe ? firstLine(text) || '未命名' : '未命名'}`
+        : `[${String(t.index).padStart(2, '0')}] ${t.role === 'user' ? '我' : 'AI'}`;
+      return {
+        key,
+        title: ed.title || dft,
+        defaultTitle: dft,
+        sub: `${solo ? '轮次 ' + t.index + '｜' : ''}${text.length} 字`,
+        role: t.role,
+        text,
+        prompts: [],
+        cut: t.role === 'assistant' && looksCut(text),
+        edited: !!(ed.title || ed.text !== undefined),
+      };
+    });
+}
+
+/* 「只看我」的默认标题：直接取指令首行，截断到 28 字 —— 指令本身就是最好的索引 */
+function firstLine(text) {
+  const l = (text || '').split('\n').map((x) => x.trim()).find(Boolean) || '';
+  return l.length > 28 ? l.slice(0, 28) + '…' : l;
+}
+
+/* ---------- 本地生成标题草稿（纯规则，不经过任何 AI） ---------- */
+function draftTitle(text) {
+  const lines = (text || '').split('\n').map((l) => l.trim()).filter(Boolean);
+  if (!lines.length) return '';
+  const strip = (s) => s.replace(/^#{1,6}\s*/, '').replace(/\*\*/g, '').replace(/^[-*·○•]\s*/, '').trim();
+  const first = strip(lines[0]);
+  // 首行本身就短、且不以标点收尾 → 它大概就是个标题
+  if (first && first.length <= 24 && !/[。！？，、,.;；：:]$/.test(first)) return first.slice(0, 24);
+  // 否则截第一句
+  const body = strip(lines.join(' '));
+  const m = body.match(/^[\s\S]{0,50}?[。！？!?]/);
+  const s = (m ? m[0] : body.slice(0, 22)).replace(/[。！？!?\s]+$/, '');
+  return s.slice(0, 24);
+}
+
+/* ---------- 目录跟随：滚到哪一条，目录就高亮并吸附过去 ---------- */
+let navRaf = 0;
+let navLockUntil = 0;          // 点目录跳转时短暂锁定，避免平滑滚动途中乱跳
+
+function activeKey() {
+  const arts = document.querySelectorAll('#reader article');
+  if (!arts.length) return '';
+  // 判定线放在表头下方一点：正文顶部越过这条线，就算"正在读它"
+  const line = headerH() + 96;
+  let key = arts[0].id;
+  for (const a of arts) {
+    if (a.getBoundingClientRect().top <= line) key = a.id;
+    else break;
+  }
+  // 已经滚到底了：强制选最后一条，否则最后一条永远高亮不了
+  const doc = document.documentElement;
+  if (window.scrollY + window.innerHeight >= doc.scrollHeight - 4) key = arts[arts.length - 1].id;
+  return key;
+}
+
+function syncNav(force) {
+  if (!force && Date.now() < navLockUntil) return;
+  const nav = document.getElementById('nav');
+  if (!nav) return;
+  const k = activeKey();
+  let cur = null;
+  nav.querySelectorAll('.navitem').forEach((n) => {
+    const on = n.dataset.go === k;
+    n.classList.toggle('active', on);
+    if (on) cur = n;
+  });
+  if (!cur) return;
+  // 只在它已经跑出目录可视范围时才滚动目录，否则目录会一直微微抖
+  const nr = nav.getBoundingClientRect();
+  const cr = cur.getBoundingClientRect();
+  const pad = 28;
+  if (cr.top < nr.top + pad) nav.scrollTop -= nr.top + pad - cr.top;
+  else if (cr.bottom > nr.bottom - pad) nav.scrollTop += cr.bottom - (nr.bottom - pad);
+}
+
+function queueNavSync() {
+  if (navRaf) return;
+  navRaf = requestAnimationFrame(() => { navRaf = 0; syncNav(); });
+}
+window.addEventListener('scroll', queueNavSync, { passive: true });
+window.addEventListener('resize', queueNavSync);
+
+/* ---------- 阅读位置锚定：重绘前记住在看哪一条，重绘后放回原处 ---------- */
+let skipAnchor = false;                 // 换文档时置 true，让它回到开头而不是沿用旧位置
+function headerH() {
+  const h = document.querySelector('header');
+  return h ? h.offsetHeight : 54;
+}
+
+function currentAnchor() {
+  const arts = document.querySelectorAll('#reader article');
+  if (!arts.length) return null;
+  const top = headerH();
+  for (const a of arts) {
+    const r = a.getBoundingClientRect();
+    if (r.bottom > top + 12) return { key: a.id, offset: r.top - top };
+  }
+  const last = arts[arts.length - 1];
+  return { key: last.id, offset: last.getBoundingClientRect().top - top };
+}
+
+function restoreAnchor(a) {
+  if (!a) return;
+  let el = document.getElementById(a.key);
+  let exact = !!el;
+  if (!el) {
+    // 原来那条被筛掉了（比如它没打星），就退到顺序上最靠近的一条
+    const all = items().map((i) => i.key);
+    const idx = all.indexOf(a.key);
+    if (idx >= 0) {
+      for (let d = 1; d < all.length; d++) {
+        const after = idx + d < all.length ? document.getElementById(all[idx + d]) : null;
+        if (after) { el = after; break; }
+        const before = idx - d >= 0 ? document.getElementById(all[idx - d]) : null;
+        if (before) { el = before; break; }
+      }
+    }
+  }
+  if (!el) return;
+  const r = el.getBoundingClientRect();
+  window.scrollBy({ top: r.top - headerH() - (exact ? a.offset : 0), behavior: 'instant' });
+}
+
+function render() {
+  const anchor = skipAnchor ? null : currentAnchor();   // 先记住位置
+  skipAnchor = false;
+  hitCount = 0;                          // 每次重绘都重新编号
+  const list = items().filter((it) => {
+    const m = S.marks[it.key] || {};
+    if (S.showDeleted) { if (!m.deleted) return false; }
+    else if (m.deleted) return false;
+    if (S.starOnly && !m.star) return false;
+    return !S.q || it.text.toLowerCase().includes(S.q.toLowerCase());
+  });
+  const nav = document.getElementById('nav');
+  const reader = document.getElementById('reader');
+
+  nav.innerHTML = list.map((it) => {
+    const m = S.marks[it.key] || {};
+    return `
+    <button class="navitem" data-go="${it.key}">
+      ${m.star ? '<span class="st">★</span> ' : ''}${esc(it.title)}${m.flag ? ' <span class="dot">●</span>' : ''}
+      <small>${esc(it.sub)}${it.cut ? '｜可能被截断' : ''}</small>
+    </button>`;
+  }).join('') || '<p style="color:var(--ink-soft);padding:10px">没有匹配结果</p>';
+
+  reader.innerHTML = list.map((it) => {
+    const m = S.marks[it.key] || {};
+    return `
+    <article id="${it.key}" class="${it.role === 'user' ? 'user' : ''} ${m.flag ? 'flagged' : ''} ${m.star ? 'starred' : ''} ${m.deleted ? 'gone' : ''}">
+      <div class="head">
+        <button class="star ${m.star ? 'on' : ''}" data-star="${it.key}"
+          title="${m.star ? '取消高光' : '标为高光'}">${m.star ? '★' : '☆'}</button>
+        <b class="ttl" contenteditable="true" spellcheck="false" data-title="${it.key}">${esc(it.title)}</b>
+        <span class="tag">${esc(it.sub)}</span>
+        ${it.cut ? '<span class="tag warn">可能被截断</span>' : ''}
+        ${it.edited ? '<span class="tag ok">已改</span>' : ''}
+        ${it.prompts && it.prompts.length ? `<span class="tag">含 ${it.prompts.length} 条指令</span>` : ''}
+        <span class="grow"></span>
+        ${m.deleted
+          ? `<button data-undel="${it.key}">恢复这一条</button>`
+          : `<button data-flag="${it.key}">${m.flag ? '取消标记' : '标记这里断了'}</button>
+             <button data-copy="${it.key}">复制</button>
+             ${it.edited ? `<button data-reset="${it.key}">还原</button>` : ''}
+             <button class="del" data-del-item="${it.key}" title="删掉这一条">×</button>`}
+      </div>
+      ${m.star ? `<div class="reviewbox"><span class="rl">★ 高光</span><textarea class="review" data-review="${it.key}" placeholder="高光在哪里？为什么推荐这一段">${esc(m.review || '')}</textarea></div>` : ''}
+      ${it.prompts && it.prompts.length ? `<details style="margin-bottom:12px"><summary style="cursor:pointer;color:var(--ink-soft);font-size:13px">查看本章对应的 ${it.prompts.length} 条指令</summary><div class="body" style="margin-top:10px;font-size:13.5px;color:var(--ink-soft)">${it.prompts.map((p) => `[${p.index}] ${esc(p.text)}`).join('\n\n')}</div></details>` : ''}
+      <div class="body editable ${S.serif ? 'serif' : ''}" contenteditable="true" spellcheck="false" data-text="${it.key}">${hl(it.text)}</div>
+      <textarea class="note" data-note="${it.key}" placeholder="备注：这里缺了什么 / 要怎么改">${esc(m.note || '')}</textarea>
+    </article>`;
+  }).join('');
+
+  const edited = Object.values(S.marks).filter((v) => v.title || v.text !== undefined).length;
+  const starred = Object.values(S.marks).filter((v) => v.star).length;
+  const gone = Object.values(S.marks).filter((v) => v.deleted).length;
+  const chars = list.reduce((n, it) => n + it.text.length, 0);
+  document.getElementById('docTitle').textContent = S.data.title || '未命名';
+  document.getElementById('meta').textContent =
+    `${S.data.turns.length} 轮｜${S.chapters.length} 章｜显示 ${list.length}｜${fmtSize(chars)}｜★ ${starred}｜已改 ${edited}｜断点 ${Object.values(S.marks).filter((v) => v.flag).length}${gone ? '｜已删 ' + gone : ''}`;
+
+  const trash = document.getElementById('btnTrash');
+  trash.textContent = '回收站 ' + (gone || '');
+  trash.classList.toggle('hidden', !gone && !S.showDeleted);
+
+  // 命中编号变了，把当前项重新落到有效范围内（不滚动，避免打断输入）
+  gotoHit(S.hitIdx || 1, false);
+
+  restoreAnchor(anchor);                 // 最后把阅读位置放回去
+  syncNav(true);                         // 重绘后目录高亮跟着走
+}
+
+/* ---------- 事件 ---------- */
+document.addEventListener('click', (e) => {
+  const go = e.target.closest('[data-go]');
+  if (go) {
+    document.getElementById(go.dataset.go)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    document.querySelectorAll('.navitem').forEach((n) => n.classList.remove('active'));
+    go.classList.add('active');
+    navLockUntil = Date.now() + 700;   // 平滑滚动途中先别让滚动事件改高亮
+    return;
+  }
+  const st = e.target.closest('[data-star]');  if (st) {
+    const k = st.dataset.star;
+    const m = S.marks[k] || {};
+    m.star = !m.star;
+    if (!m.star) delete m.review;          // 取消高光就把理由一起收走
+    S.marks[k] = m;
+    saveMarks();
+    render();
+    // 刚点亮就把光标送进点评框，直接开始写，不用再去点一下
+    if (m.star) document.querySelector(`[data-review="${k}"]`)?.focus({ preventScroll: true });
+    return;
+  }
+  const f = e.target.closest('[data-flag]');
+  if (f) {
+    const k = f.dataset.flag;
+    S.marks[k] = { ...(S.marks[k] || {}), flag: !S.marks[k]?.flag };
+    saveMarks(); render(); return;
+  }
+  const c = e.target.closest('[data-copy]');
+  if (c) {
+    const it = items().find((x) => x.key === c.dataset.copy);
+    navigator.clipboard.writeText(it.text).then(() => {
+      c.textContent = '已复制';
+      setTimeout(() => (c.textContent = '复制'), 1200);
+    });
+    return;
+  }
+  const rs = e.target.closest('[data-reset]');
+  if (rs) {
+    const k = rs.dataset.reset;
+    const m = S.marks[k] || {};
+    delete m.title;
+    delete m.text;
+    S.marks[k] = m;
+    saveMarks();
+    render();
+  }
+});
+
+/* ---------- 编辑：标题与正文，失焦即存 ---------- */
+document.addEventListener('blur', (e) => {
+  const t = e.target.closest && e.target.closest('[data-title]');
+  if (t) {
+    const k = t.dataset.title;
+    const it = items().find((x) => x.key === k);
+    const val = t.innerText.replace(/\s+/g, ' ').trim();
+    const m = S.marks[k] || {};
+    if (!val || val === it.defaultTitle) delete m.title;
+    else m.title = val;
+    S.marks[k] = m;
+    saveMarks();
+    // 只同步左侧目录，不整页重绘，避免打断连续编辑
+    const nav = document.querySelector(`[data-go="${k}"]`);
+    if (nav) {
+      const shown = m.title || it.defaultTitle;
+      nav.childNodes[0].nodeValue = '\n      ' + shown;
+    }
+    if (!val) t.innerText = it.defaultTitle;
+    return;
+  }
+  const b = e.target.closest && e.target.closest('[data-text]');
+  if (b) {
+    const k = b.dataset.text;
+    const orig = originalTextOf(k);
+    const val = b.innerText.replace(/\u00a0/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+    const m = S.marks[k] || {};
+    if (val === (orig || '').trim()) delete m.text;
+    else m.text = val;
+    S.marks[k] = m;
+    saveMarks();
+  }
+}, true);
+
+/* 粘贴时只取纯文本，避免把网页格式带进来 */
+document.addEventListener('paste', (e) => {
+  const ed = e.target.closest && e.target.closest('[contenteditable="true"]');
+  if (!ed) return;
+  e.preventDefault();
+  const text = (e.clipboardData || window.clipboardData).getData('text/plain');
+  document.execCommand('insertText', false, text);
+});
+
+function originalTextOf(key) {
+  if (key[0] === 'c') {
+    const c = S.chapters.find((x) => 'c' + x.id === key);
+    return c ? c.text : '';
+  }
+  const t = S.data.turns.find((x) => 't' + x.index === key);
+  return t ? t.text : '';
+}
+
+document.addEventListener('input', (e) => {
+  const n = e.target.closest('[data-note]');
+  if (n) {
+    const k = n.dataset.note;
+    S.marks[k] = { ...(S.marks[k] || {}), note: n.value };
+    saveMarks();
+    return;
+  }
+  const r = e.target.closest('[data-review]');
+  if (r) {
+    const k = r.dataset.review;
+    S.marks[k] = { ...(S.marks[k] || {}), review: r.value };
+    saveMarks();
+  }
+});
+
+/* ---------- 删除单条：两步确认，先武装再执行 ---------- */
+let armedKey = null;
+let armedTimer = null;
+function disarm() {
+  armedKey = null;
+  clearTimeout(armedTimer);
+  document.querySelectorAll('.del.armed').forEach((b) => {
+    b.classList.remove('armed');
+    b.textContent = '×';
+  });
+}
+
+document.addEventListener('click', (e) => {
+  const d = e.target.closest('[data-del-item]');
+  if (d) {
+    const k = d.dataset.delItem;
+    if (armedKey === k) {                       // 第二下：真删
+      disarm();
+      const m = S.marks[k] || {};
+      m.deleted = true;
+      S.marks[k] = m;
+      saveMarks();
+      render();
+    } else {                                    // 第一下：只武装
+      disarm();
+      armedKey = k;
+      d.classList.add('armed');
+      d.textContent = '确定删除';
+      armedTimer = setTimeout(disarm, 4000);    // 4 秒没动作就自动收回
+    }
+    return;
+  }
+  const ud = e.target.closest('[data-undel]');
+  if (ud) {
+    const m = S.marks[ud.dataset.undel] || {};
+    delete m.deleted;
+    S.marks[ud.dataset.undel] = m;
+    saveMarks();
+    render();
+    return;
+  }
+  if (armedKey) disarm();                       // 点到别处就取消武装
+});
+
+document.getElementById('btnTrash').onclick = (e) => {
+  S.showDeleted = !S.showDeleted;
+  e.currentTarget.setAttribute('aria-pressed', String(S.showDeleted));
+  render();
+};
+
+document.getElementById('btnStarOnly').onclick = (e) => {
+  S.starOnly = !S.starOnly;
+  e.currentTarget.setAttribute('aria-pressed', String(S.starOnly));
+  render();
+};
+
+document.getElementById('viewSeg').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-view]');
+  if (!b) return;
+  S.view = b.dataset.view;
+  document.querySelectorAll('#viewSeg button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+  render();
+});
+
+let qt;
+document.getElementById('q').addEventListener('input', (e) => {
+  clearTimeout(qt);
+  qt = setTimeout(() => {
+    S.q = e.target.value.trim();
+    S.hitIdx = 1;                        // 换了词就从第一个开始
+    render();
+  }, 200);
+});
+
+/* 回车下一个、Shift+回车上一个 */
+document.getElementById('q').addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
+  clearTimeout(qt);
+  const v = e.target.value.trim();
+  if (v !== S.q) { S.q = v; S.hitIdx = 1; render(); gotoHit(1, true); return; }
+  gotoHit(S.hitIdx + (e.shiftKey ? -1 : 1), true);
+});
+
+document.getElementById('hitPrev').onclick = () => gotoHit(S.hitIdx - 1, true);
+document.getElementById('hitNext').onclick = () => gotoHit(S.hitIdx + 1, true);
+
+document.getElementById('btnTheme').onclick = () => {  const d = document.documentElement.dataset.theme === 'dark';
+  document.documentElement.dataset.theme = d ? 'light' : 'dark';
+  localStorage.setItem('reader_theme', d ? 'light' : 'dark');
+};
+document.getElementById('btnSerif').onclick = () => { S.serif = !S.serif; render(); };
+
+/* ---------- 一键生成标题草稿：只填还没自定义过的 AI 条目 ---------- */
+document.getElementById('btnDraft').onclick = () => {
+  const list = items().filter((it) => it.role === 'assistant');
+  let n = 0;
+  list.forEach((it) => {
+    const m = S.marks[it.key] || {};
+    if (m.title) return;                       // 已经自己写过的不动
+    const d = draftTitle(it.text);
+    if (!d) return;
+    m.title = d;
+    S.marks[it.key] = m;
+    n++;
+  });
+  saveMarks();
+  render();
+  alert(n ? `已为 ${n} 条生成标题草稿（纯本地规则，没经过任何 AI）。\n直接点标题就能改。` : '没有需要生成的条目。');
+};
+
+const VIEW_NAME = { turns: '我和 AI', ai: '只看 AI', me: '只看我', chapters: '按章节' };
+document.getElementById('btnExport').onclick = () => {
+  if (!S.data) return;
+  // items() 已经把编辑后的标题与正文算进去了，导出的就是你整理后的版本
+  const shown = items().filter((it) => {
+    const m = S.marks[it.key] || {};
+    if (m.deleted) return false;                 // 删掉的不进导出
+    return !S.starOnly || m.star;
+  });
+  const md = [
+    `# ${S.data.title || '对话导出'}`, '',
+    `> 来源：${S.data.source || '-'}`,
+    `> 视图：${VIEW_NAME[S.view] || S.view}${S.starOnly ? '（只含高光）' : ''}｜共 ${shown.length} 条`, '', '---', '',
+    ...shown.map((it) => {
+      const m = S.marks[it.key] || {};
+      const badge = (m.star ? '  ★' : '') + (m.flag ? '  ⚠️ 这里断了' : '') + (it.cut ? '  （疑似截断）' : '');
+      const lines = [`## ${it.title}${badge}`];
+      if (m.review) lines.push('', `> ★ 高光：${m.review}`);
+      if (m.note) lines.push('', `> 备注：${m.note}`);
+      lines.push('', it.text, '');
+      return lines.join('\n');
+    })
+  ].join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([md], { type: 'text/markdown;charset=utf-8' }));
+  a.download = `${(S.data.title || '导出').replace(/[\\/:*?"<>|]/g, '_')}_${S.view}${S.starOnly ? '_高光' : ''}.md`;
+  a.click();
+};
+
+/* ---------- 载入 ---------- */
+function loadTurns(rawTurns, title, source, marks, markKey) {
+  S.data = {
+    title: title || '未命名',
+    source: source || '',
+    turns: rawTurns.map((t, i) => ({
+      index: t.index ?? i + 1,
+      role: t.role || (i % 2 ? 'assistant' : 'user'),
+      text: String(t.text ?? t.content ?? ''),
+    })),
+  };
+  S.chapters = buildChapters(S.data.turns);
+  // markKey 一旦确定就不再变：改文档标题不会让已有的编辑丢失
+  S.key = markKey || 'reader_marks::' + (S.data.source || S.data.title);
+  S.marks = marks ? JSON.parse(JSON.stringify(marks)) : loadMarks();
+  document.getElementById('docTitle').textContent = S.data.title;
+  document.getElementById('drop').classList.add('hidden');
+  document.getElementById('app').classList.remove('hidden');
+  skipAnchor = true;                    // 新开一篇，从头看
+  render();
+  window.scrollTo(0, 0);
+}
+
+function load(json, name) {
+  const d = typeof json === 'string' ? JSON.parse(json) : json;
+  const turns = Array.isArray(d) ? d : d.turns;
+  if (!Array.isArray(turns)) throw new Error('JSON 里找不到 turns 数组');
+  S.docId = '';                       // 新导入的是一篇新文章，保存时另开一条
+  loadTurns(turns, d.title || name, d.source);
+}
+
+/* ---------- 纯文本切分：靠「你说 / Gemini 说」这类分隔标记 ---------- */
+function parseMarks(spec) {
+  return spec
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .map((l) => {
+      const m = l.match(/^([ua])\s*:\s*(.+)$/i);
+      if (!m) return null;
+      return { role: m[1].toLowerCase() === 'u' ? 'user' : 'assistant', word: m[2].trim() };
+    })
+    .filter(Boolean)
+    .sort((a, b) => b.word.length - a.word.length);   // 长的先匹配，避免短词抢先
+}
+
+function parsePlainText(raw, marks) {
+  const lines = raw.replace(/\r\n?/g, '\n').split('\n');
+  const turns = [];
+  let cur = null;
+  lines.forEach((line) => {
+    const s = line.trim();
+    let hit = null;
+    for (const m of marks) {
+      // 允许「你说」独占一行，也允许「你说：内容」同一行
+      if (s === m.word) { hit = { role: m.role, rest: '' }; break; }
+      if (s.startsWith(m.word)) {
+        const rest = s.slice(m.word.length).replace(/^[:：\s]+/, '');
+        // 后面必须紧跟分隔符或内容，避免把「你说的那个方案」当成标记
+        if (rest === '' || /^[:：\s]/.test(s.slice(m.word.length))) {
+          hit = { role: m.role, rest };
+          break;
+        }
+      }
+    }
+    if (hit) {
+      cur = { role: hit.role, lines: hit.rest ? [hit.rest] : [] };
+      turns.push(cur);
+      return;
+    }
+    if (cur) cur.lines.push(line);
+  });
+  return turns
+    .map((t) => ({ role: t.role, text: t.lines.join('\n').trim() }))
+    .filter((t) => t.text.length > 0)
+    .map((t, i) => ({ index: i + 1, role: t.role, text: t.text }));
+}
+
+const pastePane = document.getElementById('pastePane');
+document.getElementById('btnPasteMode').onclick = () => {
+  pastePane.classList.toggle('hidden');
+  if (!pastePane.classList.contains('hidden')) document.getElementById('pasteBox').focus();
+};
+document.getElementById('btnParse').onclick = () => {
+  const raw = document.getElementById('pasteBox').value;
+  const hint = document.getElementById('parseHint');
+  if (!raw.trim()) { hint.textContent = '先粘贴内容'; return; }
+  const marks = parseMarks(document.getElementById('markBox').value);
+  if (!marks.length) { hint.textContent = '分隔标记格式不对，每行要像 u:你说'; return; }
+  const turns = parsePlainText(raw, marks);
+  if (turns.length < 2) {
+    hint.textContent = `只切出 ${turns.length} 段，检查一下分隔标记跟页面上的说法是否一致`;
+    return;
+  }
+  const u = turns.filter((t) => t.role === 'user').length;
+  hint.textContent = `切出 ${turns.length} 轮（我 ${u} / AI ${turns.length - u}）`;
+  loadTurns(turns, '粘贴的对话 ' + new Date().toLocaleString('zh-CN'), 'paste::' + raw.length);
+};
+
+const fileInput = document.getElementById('file');
+document.getElementById('btnPick').onclick = () => fileInput.click();
+/* ---------- 回主页：走之前别把改动丢了 ---------- */
+async function goHome() {
+  if (S.data) {
+    if (S.docId) {
+      await saveDoc(true);                 // 已在本地库里的，静默更新一下
+    } else if (confirm('这篇还没保存过，回主页前先存进本地库吗？')) {
+      await saveDoc(true);
+    }
+  }
+  document.getElementById('app').classList.add('hidden');
+  document.getElementById('drop').classList.remove('hidden');
+  document.getElementById('pastePane').classList.add('hidden');
+  document.getElementById('q').value = '';
+  S.q = '';
+  S.hitIdx = 0;
+  updateHitLabel();
+  await refreshSaved();
+  window.scrollTo(0, 0);
+}
+document.getElementById('btnOpen').onclick = goHome;
+document.getElementById('btnHome').onclick = goHome;
+fileInput.onchange = (e) => {
+  const f = e.target.files[0];
+  if (!f) return;
+  const r = new FileReader();
+  r.onload = () => { try { load(r.result, f.name.replace(/\.json$/i, '')); } catch (err) { alert('读不了这个文件：' + err.message); } };
+  r.readAsText(f, 'utf-8');
+};
+
+const drop = document.getElementById('drop');
+['dragenter', 'dragover'].forEach((ev) => document.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add('over'); }));
+['dragleave', 'drop'].forEach((ev) => document.addEventListener(ev, (e) => { e.preventDefault(); if (ev === 'dragleave') drop.classList.remove('over'); }));
+document.addEventListener('drop', (e) => {
+  drop.classList.remove('over');
+  const f = e.dataTransfer.files[0];
+  if (!f) return;
+  const r = new FileReader();
+  r.onload = () => { try { load(r.result, f.name.replace(/\.json$/i, '')); } catch (err) { alert('读不了这个文件：' + err.message); } };
+  r.readAsText(f, 'utf-8');
+});
+
+/* ---------- 保存 / 打开 / 删除 / 备份 ---------- */
+document.getElementById('btnSave').onclick = () => saveDoc();
+
+document.getElementById('docTitle').addEventListener('blur', (e) => {
+  if (!S.data) return;
+  const v = e.target.textContent.replace(/\s+/g, ' ').trim();
+  S.data.title = v || '未命名';
+  e.target.textContent = S.data.title;
+  render();
+});
+document.getElementById('docTitle').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); }
+});
+
+document.getElementById('savedList').addEventListener('click', async (e) => {
+  const o = e.target.closest('[data-open]');
+  if (o) { openDoc(o.dataset.open); return; }
+  const d = e.target.closest('[data-del]');
+  if (d) {
+    const row = d.closest('.saved-row');
+    const name = row ? row.querySelector('b').textContent : '这篇';
+    if (!confirm('确定删除「' + name + '」？删了就找不回来了。')) return;
+    await STORE.del(d.dataset.del);
+    await refreshSaved();
+  }
+});
+
+document.getElementById('btnBackupOut').onclick = async () => {
+  const docs = await STORE.list();
+  if (!docs.length) { alert('本地库里还没有文章'); return; }
+  const blob = new Blob([JSON.stringify({ kind: 'wwy_reader_backup', v: 1, exportedAt: new Date().toISOString(), docs }, null, 2)],
+    { type: 'application/json;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = '对话阅读器备份_' + new Date().toISOString().slice(0, 10) + '.json';
+  a.click();
+};
+
+const fileBackup = document.getElementById('fileBackup');
+document.getElementById('btnBackupIn').onclick = () => fileBackup.click();
+fileBackup.onchange = (e) => {
+  const f = e.target.files[0];
+  if (!f) return;
+  const r = new FileReader();
+  r.onload = async () => {
+    try {
+      const d = JSON.parse(r.result);
+      const docs = Array.isArray(d) ? d : d.docs;
+      if (!Array.isArray(docs)) throw new Error('这不是备份文件');
+      let n = 0;
+      for (const rec of docs) {
+        if (!rec || !rec.id || !Array.isArray(rec.turns)) continue;
+        await STORE.put(rec);
+        n++;
+      }
+      await refreshSaved();
+      alert('导入了 ' + n + ' 篇');
+    } catch (err) {
+      alert('导入失败：' + err.message);
+    }
+  };
+  r.readAsText(f, 'utf-8');
+};
+
+refreshSaved();
+document.documentElement.dataset.theme = localStorage.getItem('reader_theme') || 'light';
+</script>
+</body>
+</html>
